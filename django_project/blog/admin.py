@@ -1,3 +1,6 @@
 from django.contrib import admin
+from .models import Post # import the model that you need to  
 
-# Register your models here.
+admin.site.register(Post) # resiter post model here
+
+
