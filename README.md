@@ -1,128 +1,158 @@
-# User Profile and Picture     
+# Update User Profile       
 
-Here we will work on our profile page and upload profile image. also use of Django signals.  
+In order to update user profile we need to have forms.  
 
-we have to add field to buildin "User" model 
+let's assume we need to update "username", "email" and "image" fileds.  
+because of "image" field in "Profile" model we need to do it seperatly.  
 
-to save image on database you have to use lib call "Pillow"  
-```bash 
-$ pip install Pillow
+>django_project/user/forms.py  
+```py 
+form django import forms
+from django.contrib.auth.models import User  
+from .models import Profile  
+
+# for update "username" and "email"
+class UserUpdateForm(forms.ModelForm):
+  email = forms.EmailField() # additional field that we added  
+
+  class Meta:
+    model = User
+    fields = ['username', 'email']
+
+# for update "image" filed
+class ProfileUpdateForm(forms.ModelForm):
+
+  class Meta:
+    model = Profile 
+    fields = ['image']
+
 ```
 
-create model for "Profile" because in "User" models can't add field for image.  
-> django_project/users/models.py 
+let's add above forms to "views.py" file.   
+>django_project/user/views.py    
+```py 
+from .forms import UserUpdateForm, ProfileUpdateForm  
+
+
+@login_required
+def profile(request):
+    u_form = UserUpdateForm()
+    p_form = ProfileUpdateForm()  
+    context = {
+        'u_form': u_form,
+        'p_form': p_form
+    }
+    return render(request, 'users/profile.html', context)
+```
+
+let's go to "profile.html" to add forms to update.   
+in the form "enctype="multipart/form-data"" for sending file data.  
+> django_project/users/templates/users/profile.html  
+```html 
+{% extends "blog/base.html" %}
+ <!--need to load crispy forms when it is in the tempalte-->
+{% load crispy_forms_tags %}
+{% block content %}
+ <div class="content-section">
+  <div class="media">
+    <img class="rounded-circle account-img" src="{{ user.profile.image.url }}">
+    <div class="media-body">
+      <h2 class="account-heading">{{ user.username }}</h2>
+      <p class="text-secondary">{{ user.email }}</p>
+    </div>
+  </div>
+  <!-- just copy from register form -->
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+      <fieldset class="form-group">
+        <legend class="border-bottom mb-4">Profile Info</legend>
+          {{ u_form | crispy }}
+          {{ p_form | crispy }}
+      </fieldset>
+      <div class="form-group">
+        <button class="btn btn-outline-info" type="submit">Update</button>
+      </div>
+    </form>
+ </div>
+{% endblock content %}
+```
+
+let's set logic when update user/profile data with POST request. 
+> django_project/users/views.py
+```py 
+@login_required
+def profile(request):
+    # u_form = UserUpdateForm() load emty form 
+    # p_form = ProfileUpdateForm() load emty form  
+
+    if request.method == "POST":
+        u_form = UserUpdateForm(request.POST, instance=request.user)
+        # for read file we have to put "request.FILES" argument.  
+        p_form = ProfileUpdateForm(request.POST, request.FILES, instance=request.user.profile)
+        if u_form.is_valid() and p_form.is_valid():
+            u_form.save()
+            p_form.save()
+            # if save successfully need to redireact profile to see updated values.  
+            return redirect('profile')
+    else:
+        u_form = UserUpdateForm(instance=request.user)
+        p_form = ProfileUpdateForm(instance=request.user.profile)
+
+    context = {
+        'u_form': u_form,
+        'p_form': p_form
+    }
+    return render(request, 'users/profile.html', context)
+```
+
+
+let's see how to resize uploading image with "Pillow".  
+here we are going to overrite save function in the model.  
+> django_project/users/models.py  
 ```py 
 from django.db import models
 from django.contrib.auth.models import User
+from PIL import Image
 
 class Profile(models.Model):
-    # create one-to-one relationship with user model
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    # upload_to : directory to store profile image.   
     image = models.ImageField(default='default.jpg', upload_to='profile_pics')
 
     def __str__(self):
         return f'{self.user.username} Profile'
-```
 
-run migration for new model.  
-```bash 
-$ python manage.py makemigrations  
-$ python manage.py migrate  
-```
+    def save(self):
+        super().save()
 
-let's register new model with   
-> django_project/users/admin.py  
-```py
-from django.contrib import admin
-from .models import Profile
+        # get image path to pillow class 
+        img = Image.open(self.image.path)
 
-admin.site.register(Profile)
-```
+        if img.height > 300 or img.width > 300:
+            output_size = (300,300)
+             # resize the image.   
+            img.thumbnail(output_size)
+            # save resized image 
+            img.save(self.image.path)
+``` 
 
-go to "localhost/admin" and add profile image from admin panel.  
-
-using bash/shell we can access that model and check the database model values.  
-```bash 
-$ python mange.py shell 
->>> from django.contrib.auth.models import User
->>> user = User.objects.filter(username='samadhi').first()
->>> user.profile.image
-<ImageFieldFile: profile_pics/mx7-11.jpg>
->>> user.profile.image.width
-1024
->>> user.profile.image.url
-'/profile_pics/mx7-11.jpg'
->>> user2= User.objects.filter(username='samadhilak').first()
->>> user2.profile.image
-Traceback (most recent call last):
-  File "<console>", line 1, in <module>
-  File "/home/swashi/.local/lib/python3.13/site-packages/django/db/models/fields/related_descriptors.py", line 531, in __get__
-    raise self.RelatedObjectDoesNotExist(
-    ...<2 lines>...
-    )
-django.contrib.auth.models.User.profile.RelatedObjectDoesNotExist: User has no profile.
-```
-
-you can see uploaded image in following directory(project root directory)      
->django_project/profile_pics/image_file_name.jpg  
-
-let's change image saving directory.  
-> django_project/django_project/settings.py  
-```py 
-# MEDIA_ROOT is the location that where uploaded file located in file system.  
-MEDIA_ROOT =  os.path.join(BASE_DIR, 'media')
-# MEDIA_URL is the public url of above directory  
-MEDIA_URL = '/media/'
-```
-
-go to admin and delete created profiles and re-upload the image using admin panel.   
-and you can see uploaded image in following directory.  
-> django_project/media/profile_pics/image_file_name.jpg  
-
-show how to set default image automatically when create new user using "signals"  
-inside "users" folder create file name "signals.py"  
-> django_project/users/singals.py  
-```py 
-# import signal that emit after database did save  
-from django.db.models.signals import post_save 
-from django.contrib.auth.models import User 
-from django.dispatch import receiver  # for receiver function 
-from .models import Profile  
-
-# function for get creating User for save on Profile.
-@receiver(post_save, sender=User)
-def create_profile(sender, instance, created, **kwargs):
-  if created:
-      Profile.objects.create(user=instance)
-
-
-# function for save new profile value
-@receiver(post_save, sender=User)
-def save_profile(sender, instance, **kwargs):
-  instance.profile.save()
-```
-next you have to import above signals on 
-> django_project/users/app.py  
-```py 
-from django.apps import AppConfig
-
-class UsersConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'users'
-
-    # add following "ready" function.   
-    def ready(self):
-        import users.signals
-```
-
-now you can see default image set for on the browser for newly created user.  
+go to "post.html" tempalte and add image for author  
 ```html 
-    <img class="rounded-circle account-img" src="/media/default.jpg">
-    <div class="media-body">
-      <h2 class="account-heading">pasindu001</h2>
-      <p class="text-secondary">tisa@gmail.com</p>
-    </div>
-  
+{% extends "blog/base.html" %}
+{% block content %}
+    {% for post in posts %}
+      <article class="media content-section">
+         # add here 
+        <img class="rounded-circle article-img" src="{{ post.author.profile.image.url }}"
+        <div class="media-body">
+          <div class="article-metadata">
+            <a class="mr-2" href="#">{{ post.author }}</a>
+            <!--change date format that direcly getting from database-->
+            <small class="text-muted">{{ post.date_posted|date:"F d, Y" }}</small>
+          </div>
+          <h2><a class="article-title" href="#">{{ post.title }}</a></h2>
+          <p class="article-content">{{ post.content }}</p>
+        </div>
+      </article> 
+    {% endfor %}
+{% endblock content %}
 ```
-
