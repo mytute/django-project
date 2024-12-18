@@ -1,147 +1,128 @@
-# Login and Logout System   
+# User Profile and Picture     
 
-let's see how to build login system for who don't have "admin" access.  
-first see how to do that using default builtin login view.  
-builtin "LoginView" and "LogoutView" are "class-based" views.   
-builtin views not handle the templates and handle like logic, forms etc.   
+Here we will work on our profile page and upload profile image. also use of Django signals.  
 
-> django_project/django_project/urls.py  
+we have to add field to buildin "User" model 
+
+to save image on database you have to use lib call "Pillow"  
+```bash 
+$ pip install Pillow
+```
+
+create model for "Profile" because in "User" models can't add field for image.  
+> django_project/users/models.py 
 ```py 
+from django.db import models
+from django.contrib.auth.models import User
+
+class Profile(models.Model):
+    # create one-to-one relationship with user model
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    # upload_to : directory to store profile image.   
+    image = models.ImageField(default='default.jpg', upload_to='profile_pics')
+
+    def __str__(self):
+        return f'{self.user.username} Profile'
+```
+
+run migration for new model.  
+```bash 
+$ python manage.py makemigrations  
+$ python manage.py migrate  
+```
+
+let's register new model with   
+> django_project/users/admin.py  
+```py
 from django.contrib import admin
-from django.urls import path, include
-from users import views as user_views
-from django.contrib import views as auth_views # add here  
+from .models import Profile
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', include('blog.urls')),
-    path('register/', user_views.register, name='register'), 
-    # as_view(template_name='users/login.html') meain where to view template file
-    path('login/', auth_views.LoginView.as_view(template_name='users/login.html'), name='login'), 
-]
+admin.site.register(Profile)
 ```
 
-to create "login.html" template make copy from "register.html" and make changes.  
-> django_project/users/templates/users/login.html  
-```html 
-{% extends "blog/base.html" %}
-{% load crispy_forms_tags %}
-{% block content %}
-  <div class='content-section'>
-    <form method="POST">
-      {% csrf_token %}
-      <fieldset class="form-group">
-        <legend class="border-bottom mb-4">Log In</legend>
-          {{ form | crispy }}
-      </fieldset>
-      <div class="form-group">
-        <button class="btn btn-outline-info" type="submit">Login</button>
-      </div>
-    </form>
-    <div class="border-top pt-3">
-      <small class="text-muted">
-        Need an account? <a class="ml-2" href="{% url 'register' %}">Sign Up Now</a>
-      </small>
-    </div>
-  </div>
-{% endblock content %}
+go to "localhost/admin" and add profile image from admin panel.  
+
+using bash/shell we can access that model and check the database model values.  
+```bash 
+$ python mange.py shell 
+>>> from django.contrib.auth.models import User
+>>> user = User.objects.filter(username='samadhi').first()
+>>> user.profile.image
+<ImageFieldFile: profile_pics/mx7-11.jpg>
+>>> user.profile.image.width
+1024
+>>> user.profile.image.url
+'/profile_pics/mx7-11.jpg'
+>>> user2= User.objects.filter(username='samadhilak').first()
+>>> user2.profile.image
+Traceback (most recent call last):
+  File "<console>", line 1, in <module>
+  File "/home/swashi/.local/lib/python3.13/site-packages/django/db/models/fields/related_descriptors.py", line 531, in __get__
+    raise self.RelatedObjectDoesNotExist(
+    ...<2 lines>...
+    )
+django.contrib.auth.models.User.profile.RelatedObjectDoesNotExist: User has no profile.
 ```
 
-after "login" from login page we can see it redirect "profile" that not existed.  
-we can change/overwrite redirec path using "settings.py" file in following way.  
->django_project/django_project/settings.py  
-```
-# under page is good to write following setting  
-LOGIN_REDIRECT_URL = 'blog-home'
-```
+you can see uploaded image in following directory(project root directory)      
+>django_project/profile_pics/image_file_name.jpg  
 
-let's change redirect route after register from "blog-home" to "login"  
-```py 
-    return redirect('login')
-```
-
-let's create "logout" route by copying "register.html" template to "logout.html" template  
-```py 
-{% extends "blog/base.html" %}
-{% block content %}
-    <h2>You have been logged out </h2>
-    <div class="border-top pt-3">
-      <small class="text-muted">
-        <a class="ml-2" href="{% url 'login' %}">Log In Again</a>
-      </small>
-    </div>
-{% endblock content %}
-```
-
-you can't access above 'localhost:8000/logout' route direcly from browser because of GET request not allow for "logout" route.  
-add following "POST" method to "base.html" file near "Register" link.  
->django_project/blog/templates/blog/base.html  
-```html 
-<form method="post" action="{% url 'logout' %}">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-link">Log Out</button>
-</form>
-```
-
-let's set "login" and "register" urls according to is login or not.  
->django_project/blog/templates/blog/base.html  
-```html 
-    <div class="navbar-nav">
-      {% if user.is_authenticated %}
-        <form method="post" action="{% url 'logout' %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-link">Log Out</button>
-        </form>
-      {% else %}
-        <a class="nav-item nav-link" href="#">Login</a>
-        <a class="nav-item nav-link" href="#">Register</a>
-      {% endif %}
-    </div>
-```
-
-let's see how to add protected/restriction rountes.  
-> django_project/users/views.py  
-```py 
-from django.contrib.auth.decorators import login_required
-
-@login_required # add decorators for required login user
-def profile(request):
-    return render(request, 'users/profile.html')
-```
-
-> django_project/users/templates/users/profile.html  
-```html 
-{% extends "blog/base.html" %}
-{% block content %}
-  <h1>{{ user.username}}</h1>
-{% endblock content %}
-```
-
-> django_project/django_project/urls.py  
-```py 
-from django.contrib import admin
-from django.urls import path, include
-from users import views as user_views
-from django.contrib.auth import views as auth_views  
-
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('register/', user_views.register, name='register'), 
-    path('profile/', user_views.profile, name='profile'), # add here  
-    path('login/', auth_views.LoginView.as_view(template_name='users/login.html'), name='login'), 
-    path('logout/', auth_views.LogoutView.as_view(template_name='users/logout.html'), name='logout'), 
-    path('', include('blog.urls')),
-]
-```
-
-> django_project/blog/templates/blog/base.html  
-```html 
-    <a class="nav-item nav-link" href="{% url 'profile' %}">Profile</a>
-```
-
-show how to redirect proteced route if user not loggedin and after redirect original route like callback url.     
+let's change image saving directory.  
 > django_project/django_project/settings.py  
 ```py 
-# go down to the settings file  
-LOGIN_URL = 'login'
+# MEDIA_ROOT is the location that where uploaded file located in file system.  
+MEDIA_ROOT =  os.path.join(BASE_DIR, 'media')
+# MEDIA_URL is the public url of above directory  
+MEDIA_URL = '/media/'
 ```
+
+go to admin and delete created profiles and re-upload the image using admin panel.   
+and you can see uploaded image in following directory.  
+> django_project/media/profile_pics/image_file_name.jpg  
+
+show how to set default image automatically when create new user using "signals"  
+inside "users" folder create file name "signals.py"  
+> django_project/users/singals.py  
+```py 
+# import signal that emit after database did save  
+from django.db.models.signals import post_save 
+from django.contrib.auth.models import User 
+from django.dispatch import receiver  # for receiver function 
+from .models import Profile  
+
+# function for get creating User for save on Profile.
+@receiver(post_save, sender=User)
+def create_profile(sender, instance, created, **kwargs):
+  if created:
+      Profile.objects.create(user=instance)
+
+
+# function for save new profile value
+@receiver(post_save, sender=User)
+def save_profile(sender, instance, **kwargs):
+  instance.profile.save()
+```
+next you have to import above signals on 
+> django_project/users/app.py  
+```py 
+from django.apps import AppConfig
+
+class UsersConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'users'
+
+    # add following "ready" function.   
+    def ready(self):
+        import users.signals
+```
+
+now you can see default image set for on the browser for newly created user.  
+```html 
+    <img class="rounded-circle account-img" src="/media/default.jpg">
+    <div class="media-body">
+      <h2 class="account-heading">pasindu001</h2>
+      <p class="text-secondary">tisa@gmail.com</p>
+    </div>
+  
+```
+
