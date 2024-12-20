@@ -1,343 +1,200 @@
-# Create, Update, and Delete Posts        
+# Pagination    
 
+let's add posts from json data to the Post table.  
 
-we have used function based views and url pattern directed to it then render the remplate.     
+```bash 
+$ python manage.py shell  
+>>> import json  
+>>> from blog.models import post 
+>>> with open('posts.json') as f:
+...  post_json = json.load(f)
 
-let's create class-based view for our homepage. 
-listview, createview, updateview and deleteview   
-
-1. listview 
-
-current view  
-> django_project/blog/views.py  
-```py 
-def home(request):
-  context = {
-      'posts': Post.objects.all()
-  }
-  return render(request, 'blog/home.html', context)
+>>> for post in post_json:
+      post = Post(title=post['title'], content=post['content'], author_id=post['user_id'])
+      post.save()  
+>>> exit()  
 ```
 
-updated list view  
-> django_project/blog/views.py  
-```py
-from django.views,generic import ListView  
+for paginate posts we can use paginate object.  
+let's see about how Paginator object is going to work.   
+```bash 
+$ python manage.py shell  
+>>> from django.core.paginator import Paginator  
+>>> posts = ['1', '2', '3', '4', '5']
+>>> p = Paginator(posts, 2)
+>>> p.num_pages  
+3  
+>>> for page in p.page_range:
+...    print(page)
+>>> p1 = p.page(1)  
+>>> p1  
+<Page 1 of 3>
+>>> p1.number   
+1 
+>>> p1.object_list  
+['1', '2']
+>>> p1.has_previous()  
+False  
+>>> p1.have_next()  
+True  
+>>> p1.next_page_number()  
+2  
+```
 
+we are going to add pagination for "home" page.   
+if we using class list view then no need to define pagination object there.  
+just need to add attribute call "paginate_by"
+> django_prroject/blog/views.py  
+```py 
 class PostListView(ListView):
-  # what model to query list this view  
   model= Post
-  # changing default looking template by class view.  
-  template_name = 'blog/home.html' # <app>/<model>_<viewtype>.html
-  # we no need to query posts list because "ListView" already include it.  
+  template_name = 'blog/home.html' 
   context_object_name = 'posts'
-  # order post according date.
-  ordering = ['-date_posted'] # ['-date_posted'] for des order.  
+  ordering = ['date_posted'] 
+  # add here
+  paginate_by = 2 # paginate list 2 post for a page.  
 ```
 
-we need to linke new class view from the route.  
-and here we need to convert class into an actual view.  
-> django_project/blog/urls.py  
-```py 
-from django.urls import path 
-from .views import PostListView
-from . import views  
+just check following links by changing page number   
+http://localhost:8000/?page=2
 
-
-urlpatterns = [
-  # path('', views.home, name='blog-home'),
-  path('', PostListView.as_view(), name='blog-home'),
-  path('about/', views.about, name='blog-about')
-]
-```
-
-By default class view not looking "home.html" template because for class view there is nameing convention for the template.  
-<app>/<model>_<viewtype>.html    
-blog/post_list.html  
-
-let's see how to show details of post by using details view.  
-
-> django_project/blog/views.py  
-```py 
-from django.views,generic import ListView, DetailView 
-
-class PostDetailView(DetailView):
-  model= Post
-
-
-```
-
-then you need to url pattern for view post details.  
-> django_project/blog/urls.py  
-```py 
-from django.urls import path 
-from .views import PostListView, PostDetailView
-from . import views  
-
-urlpatterns = [
-  # path('', views.home, name='blog-home'),
-  path('', PostListView.as_view(), name='blog-home'),
-  path('post/<int:pk>/', PostDetailView.as_view(), name='post-detail'), # add here
-  path('about/', views.about, name='blog-about')
-]
-```
-
-let's create template for above "post-detail" route.  
-format of tempalte name : <app>/<model>_<viewtype>.html  
- > django_project/blog/templates/blog/post_detail.html    
- ```py 
+let's add linked urls for our webpage to navigate between pages.   
+> django_prroject/blog/templates/blog/home.html  
+```html 
 {% extends "blog/base.html" %}
 {% block content %}
-  <article class="media content-section">
-    <img class="rounded-circle article-img" src="{{ object.author.profile.image.url }}"/>
-    <div class="media-body">
-      <div class="article-metadata">
-        <a class="mr-2" href="#">{{ object.author }}</a>
-        <!--change date format that direcly getting from database-->
-        <small class="text-muted">{{ object.date_posted|date:"F d, Y" }}</small>
-      </div>
-      <h2 class="article-title" />{{ object.title }}</h2>
-      <p class="article-content">{{ object.content }}</p>
-    </div>
-  </article> 
+    {% for post in posts %}
+      <article class="media content-section">
+        <img class="rounded-circle article-img" src="{{ post.author.profile.image.url }}"/>
+        <div class="media-body">
+          <div class="article-metadata">
+            <a class="mr-2" href="#">{{ post.author }}</a>
+            <!--change date format that direcly getting from database-->
+            <small class="text-muted">{{ post.date_posted|date:"F d, Y" }}</small>
+          </div>
+          <h2><a class="article-title" href="{% url 'post-detail' post.id %}">{{ post.title }}</a></h2>
+          <p class="article-content">{{ post.content }}</p>
+        </div>
+      </article> 
+    {% endfor %}    
+
+    <!--pagination start by here..-->
+    {% if is_paginated %}
+
+      {% if page_obj.has_previous %}
+        <a class="btn btn-outline-info mb-4" href="?page=1">First</a>
+        <a class="btn btn-outline-info mb-4" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+      {% endif %}
+
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+          <a class="btn btn-info mb-4" href="?page={{ num }}">{{ num }}</a>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+          <a class="btn btn-outline-info mb-4" href="?page={{ num }}">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+        <a class="btn btn-outline-info mb-4" href="?page={{ page_obj.next_page_number }}">Next</a>
+        <a class="btn btn-outline-info mb-4" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+      {% endif %}
+
+    {% endif %}
 {% endblock content %}
- ```
 
- now check the url (http://localhost:8000/post/1/)
-
-let's change post-list-view template urls to detail-view.  
-go to "home.html" template and pass "post-detail" name with post id     
-> django_project/blog/templates/blog/home.html  
-```html 
-<h2><a class="article-title" href="{% url 'post-detail' post.id %}">{{ post.title }}</a></h2>
 ```
 
-let's see how to create post using "CreateView"  
-> django_project/blog/views.py  
+let's see how to filter post under pagination.  
+let's implement when click username link load only that user's post under pagination.  
+> django_prroject/blog/views.py  
 ```py 
-from django.views.generic import ( 
-   CreateView, 
-   ListView, 
-   DetailView 
-)
+from django.contrib.auth.models import User
 
-class PostCreateView(CreateView):
+# let's create new list view for filtering pagination view.  
+class UserPostListView(ListView):
   model= Post
-  # define field should contain in form 
-  fields = ['title', 'content']
+  template_name = 'blog/user_post.html' 
+  context_object_name = 'posts'
+  # ordering = ['date_posted']  add this line direcly to overrides query  
+  paginate_by = 2 
+
+  def get_queryset(self):
+     # return super().get_queryset()
+     # way to get query parameter: kwargs.get('username')
+     user = get_object_or_404(User, username=self.kwargs.get('username'))
+     return Post.objects.filter(author=user).order_by('-date_posted')
 ```
 
-next create url pattern for create view   
-> django_project/blog/urls.py  
+let's create url pattern in urls.  
 ```py 
 from django.urls import path 
 from . import views  
 from .views import (
     PostListView, 
-    PostDetailView,
-    PostCreateView # add here 
+    ...
+    UserPostListView
 )
 
 urlpatterns = [
-  # path('', views.home, name='blog-home'),
   path('', PostListView.as_view(), name='blog-home'),
-  path('post/<int:pk>/', PostDetailView.as_view(), name='post-detail'),
-  path('post/new/', PostCreateView.as_view(), name='post-create'), # add here
-  path('about/', views.about, name='blog-about')
-]
-```
-
-now we need to create template for create view.  
-for create template naming convention is "post_from.html"  
-> django_project/blog/templates/blog/post_form.html   
-```html 
-{% extends "blog/base.html" %}
-{% load crispy_forms_tags %}
-{% block content %}
-  <div class='content-section'>
-    <form method="POST">
-      {% csrf_token %}
-      <fieldset class="form-group">
-        <legend class="border-bottom mb-4">Blog Post</legend>
-          {{ form | crispy }}
-      </fieldset>
-      <div class="form-group">
-        <button class="btn btn-outline-info" type="submit">Post</button>
-      </div>
-    </form>
-  </div>
-{% endblock content %}
-```
-
-we need to overrides "form_valid" function to add user to saving post for the author field.  
-> django_project/blog/views.py  
-```py 
-# to privent access of create post who are not loggedin  
-from django.contrib.auth.mixins import LoginRequiredMixin 
-
-# if we remove LoginRequiredMixin then user can create post who even not loggedin  
-class PostCreateView(LoginRequiredMixin, CreateView):
-  model= Post
-  # define field should contain in form 
-  fields = ['title', 'content']
-
-  # add current user details because it need to save post author field  
-  # for that we need overrides "form_valid" method  
-  def form_valid(self, form):
-      form.instance.author = self.request.user
-      return super().form_valid(form)
-```
-
-after press submit button for create new post we need to set redirect url.   
-after submit if we want redirec to newly created post here we can't use "redirect" function because here url is dynamic.   
-so here we are going to use function in post model to return new url.    
-> django_project/blog/models.py  
-```py 
-from django.db import models
-from django.utils import timezone
-from django.contrib.auth.models import User  
-from django.urls import reverse # add here
-
-class Post(models.Model): 
-    title = models.CharField(max_length= 100)
-    content = models.TextField()
-    date_posted = models.DateTimeField(default= timezone.now)
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
-
-    def __str__(self):
-        return self.title or "Untitled Post"
-
-    # add for return newly created url  
-    def get_absolute_url(self):
-        return reverse('post-detail', kwargs={'pk': self.pk})
-```
-
-let's see how to update(no need to code tempalte can use create(post_form) template) 
-
-> django_project/blog/views.py  
-```py 
-from django.views.generic import (
-  CreateView, 
-  ListView, 
-  DetailView, 
-  UpdateView # add here  
-)
-
-class PostUpdateView(LoginRequiredMixin, UpdateView):
-  model= Post
-  # define field should contain in form 
-  fields = ['title', 'content']
-
-  # add current user details because it need to save post author field  
-  # for that we need overrides "form_valid" method  
-  def form_valid(self, form):
-      form.instance.author = self.request.user
-      return super().form_valid(form)
-```
-
-next create urls route patterns in urls.py file   
-> django_project/blog/utls.py  
-```py 
-from django.urls import path 
-from . import views  
-from .views import (
-    PostListView, 
-    PostDetailView,
-    PostCreateView,
-    PostUpdateView # add here  
-)
-
-urlpatterns = [
-  # path('', views.home, name='blog-home'),
-  path('', PostListView.as_view(), name='blog-home'),
+  # add here
+  path('user/<str:username>', UserPostListView.as_view(), name='user-post'),
   path('post/<int:pk>/', PostDetailView.as_view(), name='post-detail'),
   path('post/new/', PostCreateView.as_view(), name='post-create'), 
-  path('post/<int:pk>/update', PostUpdateView.as_view(), name='post-update'), # add here
-  path('about/', views.about, name='blog-about')
+  ...
 ]
 ```
-
-next see how to privent update post that create by another user.   
-for that we are going to use another mixing call "UserPassesTestMixin"
-> django_project/blog/views.py  
- ```py 
-class PostUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
-  model= Post
-  fields = ['title', 'content']
-
-  def form_valid(self, form):
-      form.instance.author = self.request.user
-      return super().form_valid(form)
-
-  # here you need to add function to pass access validation.   
-  def test_func(self):
-    post = self.get_object()
-    if self.request.user == post.author:
-        return True
-    return False
- ```
-
-let's see how to delete post.(this is similar to post details )  
-> django_project/blog/views.py  
-```py 
-class PostDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
-  model= Post
-  success_url = '/' # post will not remove until add redirec url 
-
-  def test_func(self):
-    post = self.get_object()
-    if self.request.user == post.author:
-        return True
-    return False
-```
-
-next you need to have add url pattern in "urls.py" file.  
-```py 
-from django.urls import path 
-from . import views  
-from .views import (
-    PostListView, 
-    PostDetailView,
-    PostCreateView,
-    PostUpdateView,
-    PostDeleteView # add here  
-)
-
-urlpatterns = [
-  # path('', views.home, name='blog-home'),
-  path('', PostListView.as_view(), name='blog-home'),
-  path('post/<int:pk>/', PostDetailView.as_view(), name='post-detail'),
-  path('post/new/', PostCreateView.as_view(), name='post-create'), 
-  path('post/<int:pk>/update/', PostUpdateView.as_view(), name='post-update'), 
-  path('post/<int:pk>/delete/', PostDeleteView.as_view(), name='post-delete'), # add here
-  path('about/', views.about, name='blog-about')
-]
-```
-
-next need to create template that show delete confirmation.  
-create new template for naming convention "post_confirm_delete.html".  
-> django_project/blog/templates/blog/post_confirm_delete.html  
+ 
+next create template named "blog/user_post.html" similar to home page.  
+> django_prroject/blog/templates/blog/user_post.html  
 ```html 
 {% extends "blog/base.html" %}
 {% block content %}
-  <div class='content-section'>
-    <form method="POST">
-      {% csrf_token %}
-      <fieldset class="form-group">
-        <legend class="border-bottom mb-4">Delete Post</legend>
-        <h2>Are you sure you want to delete the post "{{object.title}}" ? </h2>
-      </fieldset>
-      <div class="form-group">
-        <button class="btn btn-outline-danger" type="submit">Yes, Delete</button>
-        <a class="btn btn-outline-secondary" href="{% url 'post-detail' object.id %}">Cancel</a>
-      </div>
-    </form>
-  </div>
+     <!--add user name and total number of post here -->
+     <h1 class="mb-3" > Posts by {{ view.kwargs.username }} ({{ page_obj.paginator.count }})</h1>
+    {% for post in posts %}
+      <article class="media content-section">
+        <img class="rounded-circle article-img" src="{{ post.author.profile.image.url }}"/>
+        <div class="media-body">
+          <div class="article-metadata">
+            <!--add href value here to navigate filter route.  -->
+            <a class="mr-2" href="{% url 'user-post' post.author.username %}">{{ post.author }}</a>
+            <!--change date format that direcly getting from database-->
+            <small class="text-muted">{{ post.date_posted|date:"F d, Y" }}</small>
+          </div>
+          <h2><a class="article-title" href="{% url 'post-detail' post.id %}">{{ post.title }}</a></h2>
+          <p class="article-content">{{ post.content }}</p>
+        </div>
+      </article> 
+    {% endfor %}    
+    {% if is_paginated %}
+
+      {% if page_obj.has_previous %}
+        <a class="btn btn-outline-info mb-4" href="?page=1">First</a>
+        <a class="btn btn-outline-info mb-4" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+      {% endif %}
+
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+          <a class="btn btn-info mb-4" href="?page={{ num }}">{{ num }}</a>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+          <a class="btn btn-outline-info mb-4" href="?page={{ num }}">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+        <a class="btn btn-outline-info mb-4" href="?page={{ page_obj.next_page_number }}">Next</a>
+        <a class="btn btn-outline-info mb-4" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+      {% endif %}
+
+    {% endif %}
 {% endblock content %}
 ```
 
-post will not delete until you add redirect url.    
-let's redirect to homepage inside "PostDeleteView"  
-> django_project/blog/views.py  
-```py 
-success_url = '/'
+change navigation when click the username on browser.  
+navigate to filter template url is    
+```html 
+href="{% url 'user-post' post.author.username %}"
 ```
+
+now click username of post and check fitering and pagination.  

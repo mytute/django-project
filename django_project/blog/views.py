@@ -1,7 +1,8 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin 
 from django.http import HttpResponse
 from .models import Post
+from django.contrib.auth.models import User
 from django.views.generic import CreateView, ListView, DetailView, UpdateView, DeleteView  
 
 posts = [
@@ -41,6 +42,24 @@ class PostListView(ListView):
   context_object_name = 'posts'
   # order post according date.
   ordering = ['date_posted'] # ['-date_posted'] for des order.  
+
+  paginate_by = 2 # paginate list 2 post for a page.  
+
+
+class UserPostListView(ListView):
+  model= Post
+  template_name = 'blog/user_post.html' 
+  context_object_name = 'posts'
+  # ordering = ['date_posted']  add this line direcly to overrides query  
+  paginate_by = 2 
+
+  def get_queryset(self):
+     # return super().get_queryset()
+     # way to get query parameter: kwargs.get('username')
+     user = get_object_or_404(User, username=self.kwargs.get('username'))
+     return Post.objects.filter(author=user).order_by('-date_posted')
+
+
 
 
 class PostDetailView(DetailView):
