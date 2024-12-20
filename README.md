@@ -1,158 +1,343 @@
-# Update User Profile       
+# Create, Update, and Delete Posts        
 
-In order to update user profile we need to have forms.  
 
-let's assume we need to update "username", "email" and "image" fileds.  
-because of "image" field in "Profile" model we need to do it seperatly.  
+we have used function based views and url pattern directed to it then render the remplate.     
 
->django_project/user/forms.py  
+let's create class-based view for our homepage. 
+listview, createview, updateview and deleteview   
+
+1. listview 
+
+current view  
+> django_project/blog/views.py  
 ```py 
-form django import forms
-from django.contrib.auth.models import User  
-from .models import Profile  
+def home(request):
+  context = {
+      'posts': Post.objects.all()
+  }
+  return render(request, 'blog/home.html', context)
+```
 
-# for update "username" and "email"
-class UserUpdateForm(forms.ModelForm):
-  email = forms.EmailField() # additional field that we added  
+updated list view  
+> django_project/blog/views.py  
+```py
+from django.views,generic import ListView  
 
-  class Meta:
-    model = User
-    fields = ['username', 'email']
+class PostListView(ListView):
+  # what model to query list this view  
+  model= Post
+  # changing default looking template by class view.  
+  template_name = 'blog/home.html' # <app>/<model>_<viewtype>.html
+  # we no need to query posts list because "ListView" already include it.  
+  context_object_name = 'posts'
+  # order post according date.
+  ordering = ['-date_posted'] # ['-date_posted'] for des order.  
+```
 
-# for update "image" filed
-class ProfileUpdateForm(forms.ModelForm):
+we need to linke new class view from the route.  
+and here we need to convert class into an actual view.  
+> django_project/blog/urls.py  
+```py 
+from django.urls import path 
+from .views import PostListView
+from . import views  
 
-  class Meta:
-    model = Profile 
-    fields = ['image']
+
+urlpatterns = [
+  # path('', views.home, name='blog-home'),
+  path('', PostListView.as_view(), name='blog-home'),
+  path('about/', views.about, name='blog-about')
+]
+```
+
+By default class view not looking "home.html" template because for class view there is nameing convention for the template.  
+<app>/<model>_<viewtype>.html    
+blog/post_list.html  
+
+let's see how to show details of post by using details view.  
+
+> django_project/blog/views.py  
+```py 
+from django.views,generic import ListView, DetailView 
+
+class PostDetailView(DetailView):
+  model= Post
+
 
 ```
 
-let's add above forms to "views.py" file.   
->django_project/user/views.py    
+then you need to url pattern for view post details.  
+> django_project/blog/urls.py  
 ```py 
-from .forms import UserUpdateForm, ProfileUpdateForm  
+from django.urls import path 
+from .views import PostListView, PostDetailView
+from . import views  
 
-
-@login_required
-def profile(request):
-    u_form = UserUpdateForm()
-    p_form = ProfileUpdateForm()  
-    context = {
-        'u_form': u_form,
-        'p_form': p_form
-    }
-    return render(request, 'users/profile.html', context)
+urlpatterns = [
+  # path('', views.home, name='blog-home'),
+  path('', PostListView.as_view(), name='blog-home'),
+  path('post/<int:pk>/', PostDetailView.as_view(), name='post-detail'), # add here
+  path('about/', views.about, name='blog-about')
+]
 ```
 
-let's go to "profile.html" to add forms to update.   
-in the form "enctype="multipart/form-data"" for sending file data.  
-> django_project/users/templates/users/profile.html  
+let's create template for above "post-detail" route.  
+format of tempalte name : <app>/<model>_<viewtype>.html  
+ > django_project/blog/templates/blog/post_detail.html    
+ ```py 
+{% extends "blog/base.html" %}
+{% block content %}
+  <article class="media content-section">
+    <img class="rounded-circle article-img" src="{{ object.author.profile.image.url }}"/>
+    <div class="media-body">
+      <div class="article-metadata">
+        <a class="mr-2" href="#">{{ object.author }}</a>
+        <!--change date format that direcly getting from database-->
+        <small class="text-muted">{{ object.date_posted|date:"F d, Y" }}</small>
+      </div>
+      <h2 class="article-title" />{{ object.title }}</h2>
+      <p class="article-content">{{ object.content }}</p>
+    </div>
+  </article> 
+{% endblock content %}
+ ```
+
+ now check the url (http://localhost:8000/post/1/)
+
+let's change post-list-view template urls to detail-view.  
+go to "home.html" template and pass "post-detail" name with post id     
+> django_project/blog/templates/blog/home.html  
+```html 
+<h2><a class="article-title" href="{% url 'post-detail' post.id %}">{{ post.title }}</a></h2>
+```
+
+let's see how to create post using "CreateView"  
+> django_project/blog/views.py  
+```py 
+from django.views.generic import ( 
+   CreateView, 
+   ListView, 
+   DetailView 
+)
+
+class PostCreateView(CreateView):
+  model= Post
+  # define field should contain in form 
+  fields = ['title', 'content']
+```
+
+next create url pattern for create view   
+> django_project/blog/urls.py  
+```py 
+from django.urls import path 
+from . import views  
+from .views import (
+    PostListView, 
+    PostDetailView,
+    PostCreateView # add here 
+)
+
+urlpatterns = [
+  # path('', views.home, name='blog-home'),
+  path('', PostListView.as_view(), name='blog-home'),
+  path('post/<int:pk>/', PostDetailView.as_view(), name='post-detail'),
+  path('post/new/', PostCreateView.as_view(), name='post-create'), # add here
+  path('about/', views.about, name='blog-about')
+]
+```
+
+now we need to create template for create view.  
+for create template naming convention is "post_from.html"  
+> django_project/blog/templates/blog/post_form.html   
 ```html 
 {% extends "blog/base.html" %}
- <!--need to load crispy forms when it is in the tempalte-->
 {% load crispy_forms_tags %}
 {% block content %}
- <div class="content-section">
-  <div class="media">
-    <img class="rounded-circle account-img" src="{{ user.profile.image.url }}">
-    <div class="media-body">
-      <h2 class="account-heading">{{ user.username }}</h2>
-      <p class="text-secondary">{{ user.email }}</p>
-    </div>
-  </div>
-  <!-- just copy from register form -->
-    <form method="POST" enctype="multipart/form-data">
+  <div class='content-section'>
+    <form method="POST">
       {% csrf_token %}
       <fieldset class="form-group">
-        <legend class="border-bottom mb-4">Profile Info</legend>
-          {{ u_form | crispy }}
-          {{ p_form | crispy }}
+        <legend class="border-bottom mb-4">Blog Post</legend>
+          {{ form | crispy }}
       </fieldset>
       <div class="form-group">
-        <button class="btn btn-outline-info" type="submit">Update</button>
+        <button class="btn btn-outline-info" type="submit">Post</button>
       </div>
     </form>
- </div>
+  </div>
 {% endblock content %}
 ```
 
-let's set logic when update user/profile data with POST request. 
-> django_project/users/views.py
+we need to overrides "form_valid" function to add user to saving post for the author field.  
+> django_project/blog/views.py  
 ```py 
-@login_required
-def profile(request):
-    # u_form = UserUpdateForm() load emty form 
-    # p_form = ProfileUpdateForm() load emty form  
+# to privent access of create post who are not loggedin  
+from django.contrib.auth.mixins import LoginRequiredMixin 
 
-    if request.method == "POST":
-        u_form = UserUpdateForm(request.POST, instance=request.user)
-        # for read file we have to put "request.FILES" argument.  
-        p_form = ProfileUpdateForm(request.POST, request.FILES, instance=request.user.profile)
-        if u_form.is_valid() and p_form.is_valid():
-            u_form.save()
-            p_form.save()
-            # if save successfully need to redireact profile to see updated values.  
-            return redirect('profile')
-    else:
-        u_form = UserUpdateForm(instance=request.user)
-        p_form = ProfileUpdateForm(instance=request.user.profile)
+# if we remove LoginRequiredMixin then user can create post who even not loggedin  
+class PostCreateView(LoginRequiredMixin, CreateView):
+  model= Post
+  # define field should contain in form 
+  fields = ['title', 'content']
 
-    context = {
-        'u_form': u_form,
-        'p_form': p_form
-    }
-    return render(request, 'users/profile.html', context)
+  # add current user details because it need to save post author field  
+  # for that we need overrides "form_valid" method  
+  def form_valid(self, form):
+      form.instance.author = self.request.user
+      return super().form_valid(form)
 ```
 
-
-let's see how to resize uploading image with "Pillow".  
-here we are going to overrite save function in the model.  
-> django_project/users/models.py  
+after press submit button for create new post we need to set redirect url.   
+after submit if we want redirec to newly created post here we can't use "redirect" function because here url is dynamic.   
+so here we are going to use function in post model to return new url.    
+> django_project/blog/models.py  
 ```py 
 from django.db import models
-from django.contrib.auth.models import User
-from PIL import Image
+from django.utils import timezone
+from django.contrib.auth.models import User  
+from django.urls import reverse # add here
 
-class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    image = models.ImageField(default='default.jpg', upload_to='profile_pics')
+class Post(models.Model): 
+    title = models.CharField(max_length= 100)
+    content = models.TextField()
+    date_posted = models.DateTimeField(default= timezone.now)
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f'{self.user.username} Profile'
+        return self.title or "Untitled Post"
 
-    def save(self):
-        super().save()
+    # add for return newly created url  
+    def get_absolute_url(self):
+        return reverse('post-detail', kwargs={'pk': self.pk})
+```
 
-        # get image path to pillow class 
-        img = Image.open(self.image.path)
+let's see how to update(no need to code tempalte can use create(post_form) template) 
 
-        if img.height > 300 or img.width > 300:
-            output_size = (300,300)
-             # resize the image.   
-            img.thumbnail(output_size)
-            # save resized image 
-            img.save(self.image.path)
-``` 
+> django_project/blog/views.py  
+```py 
+from django.views.generic import (
+  CreateView, 
+  ListView, 
+  DetailView, 
+  UpdateView # add here  
+)
 
-go to "post.html" tempalte and add image for author  
+class PostUpdateView(LoginRequiredMixin, UpdateView):
+  model= Post
+  # define field should contain in form 
+  fields = ['title', 'content']
+
+  # add current user details because it need to save post author field  
+  # for that we need overrides "form_valid" method  
+  def form_valid(self, form):
+      form.instance.author = self.request.user
+      return super().form_valid(form)
+```
+
+next create urls route patterns in urls.py file   
+> django_project/blog/utls.py  
+```py 
+from django.urls import path 
+from . import views  
+from .views import (
+    PostListView, 
+    PostDetailView,
+    PostCreateView,
+    PostUpdateView # add here  
+)
+
+urlpatterns = [
+  # path('', views.home, name='blog-home'),
+  path('', PostListView.as_view(), name='blog-home'),
+  path('post/<int:pk>/', PostDetailView.as_view(), name='post-detail'),
+  path('post/new/', PostCreateView.as_view(), name='post-create'), 
+  path('post/<int:pk>/update', PostUpdateView.as_view(), name='post-update'), # add here
+  path('about/', views.about, name='blog-about')
+]
+```
+
+next see how to privent update post that create by another user.   
+for that we are going to use another mixing call "UserPassesTestMixin"
+> django_project/blog/views.py  
+ ```py 
+class PostUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+  model= Post
+  fields = ['title', 'content']
+
+  def form_valid(self, form):
+      form.instance.author = self.request.user
+      return super().form_valid(form)
+
+  # here you need to add function to pass access validation.   
+  def test_func(self):
+    post = self.get_object()
+    if self.request.user == post.author:
+        return True
+    return False
+ ```
+
+let's see how to delete post.(this is similar to post details )  
+> django_project/blog/views.py  
+```py 
+class PostDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+  model= Post
+  success_url = '/' # post will not remove until add redirec url 
+
+  def test_func(self):
+    post = self.get_object()
+    if self.request.user == post.author:
+        return True
+    return False
+```
+
+next you need to have add url pattern in "urls.py" file.  
+```py 
+from django.urls import path 
+from . import views  
+from .views import (
+    PostListView, 
+    PostDetailView,
+    PostCreateView,
+    PostUpdateView,
+    PostDeleteView # add here  
+)
+
+urlpatterns = [
+  # path('', views.home, name='blog-home'),
+  path('', PostListView.as_view(), name='blog-home'),
+  path('post/<int:pk>/', PostDetailView.as_view(), name='post-detail'),
+  path('post/new/', PostCreateView.as_view(), name='post-create'), 
+  path('post/<int:pk>/update/', PostUpdateView.as_view(), name='post-update'), 
+  path('post/<int:pk>/delete/', PostDeleteView.as_view(), name='post-delete'), # add here
+  path('about/', views.about, name='blog-about')
+]
+```
+
+next need to create template that show delete confirmation.  
+create new template for naming convention "post_confirm_delete.html".  
+> django_project/blog/templates/blog/post_confirm_delete.html  
 ```html 
 {% extends "blog/base.html" %}
 {% block content %}
-    {% for post in posts %}
-      <article class="media content-section">
-         # add here 
-        <img class="rounded-circle article-img" src="{{ post.author.profile.image.url }}"
-        <div class="media-body">
-          <div class="article-metadata">
-            <a class="mr-2" href="#">{{ post.author }}</a>
-            <!--change date format that direcly getting from database-->
-            <small class="text-muted">{{ post.date_posted|date:"F d, Y" }}</small>
-          </div>
-          <h2><a class="article-title" href="#">{{ post.title }}</a></h2>
-          <p class="article-content">{{ post.content }}</p>
-        </div>
-      </article> 
-    {% endfor %}
+  <div class='content-section'>
+    <form method="POST">
+      {% csrf_token %}
+      <fieldset class="form-group">
+        <legend class="border-bottom mb-4">Delete Post</legend>
+        <h2>Are you sure you want to delete the post "{{object.title}}" ? </h2>
+      </fieldset>
+      <div class="form-group">
+        <button class="btn btn-outline-danger" type="submit">Yes, Delete</button>
+        <a class="btn btn-outline-secondary" href="{% url 'post-detail' object.id %}">Cancel</a>
+      </div>
+    </form>
+  </div>
 {% endblock content %}
+```
+
+post will not delete until you add redirect url.    
+let's redirect to homepage inside "PostDeleteView"  
+> django_project/blog/views.py  
+```py 
+success_url = '/'
 ```
