@@ -99,6 +99,7 @@ $ sudo ufw allow 8000
 $ sudo ufw enable 
 # check list of status  
 $ sudo ufw status
+$ sudo ufw status verbose # get more details
 ```
 
 virtualenv is the way to separate different Python environment  
