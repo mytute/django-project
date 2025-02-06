@@ -19,6 +19,8 @@ $ sudo yum install python3-devel mysql-devel pkgconfig # Red Hat / CentOS
 install django and mysql client for virtual env   
 ```bash
 $ pip install django mysqlclient
+$ pip install gunicorn # For production deployment
+$ pip install mysqlclient # driver for MySQL (use psycopg2-binary==2.9.9 for PostgreSQL)
 ```
 
 Create the Django project and app
@@ -74,4 +76,3 @@ install docker
 $ sudo dnf install docker -y # for fedora
 $ sudo apt install docker.io
 ```
-
