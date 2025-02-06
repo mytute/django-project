@@ -179,6 +179,39 @@ For Production
 export DJANGO_ENV=prod
 gunicorn mydjango.wsgi
 ```
+
+docker file  on root directory   
+```bash
+# Use an official Python runtime as a parent image
+FROM python:3.10
+
+# Set an environment variable to onbuffer Python output, aiding in loggin and debugging  
+ENV PORT=8000 
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy requirements.txt to the container and install dependencies
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application code
+COPY . /app/
+
+# Upgrade pip to ensure we have the latest version for installing dependencies  
+RUN pip install --upgrade pip  
+
+# Install dependencies from the requirements.txt file to ensure our Python environment  
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Run database migrations and start the server
+# CMD gunicorn mydjango.wsgi:application --bind 0.0.0.0:"${PORT}"
+CMD ["gunicorn", "mydjango.wsgi:application", "--bind", "0.0.0.0:8000"]
+
+# Inform Docker that the container listens on the specified network port at runtime 
+EXPOSE 8000
+```
+
 build docker  
 ```bash
 $ sudo docker build -t mydjango-app .
