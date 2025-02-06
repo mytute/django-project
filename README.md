@@ -76,3 +76,113 @@ install docker
 $ sudo dnf install docker -y # for fedora
 $ sudo apt install docker.io
 ```
+
+generete requirements.txt file inside where have manage.py file.    
+```bash
+$ pip freeze > requirements.txt
+```
+
+install package for set dot env variables and create dot env file     
+```bash
+$ pip install python-dotenv
+```
+.env.local
+```py
+SECRET_KEY=local-secret-key
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+DATABASE_ENGINE=django.db.backends.mysql
+DATABASE_NAME=mydatabase_local
+DATABASE_USER=root
+DATABASE_PASSWORD=root123
+DATABASE_HOST=localhost
+DATABASE_PORT=3306
+```
+.env.test
+```py
+SECRET_KEY=test-secret-key
+DEBUG=False
+ALLOWED_HOSTS=127.0.0.1
+DATABASE_ENGINE=django.db.backends.mysql
+DATABASE_NAME=mydatabase_test
+DATABASE_USER=test_user
+DATABASE_PASSWORD=test_password
+DATABASE_HOST=localhost
+DATABASE_PORT=3306
+```
+
+.env.prod
+```py
+SECRET_KEY=prod-secret-key
+DEBUG=False
+ALLOWED_HOSTS=mydomain.com,www.mydomain.com
+DATABASE_ENGINE=django.db.backends.mysql
+DATABASE_NAME=mydatabase_prod
+DATABASE_USER=prod_user
+DATABASE_PASSWORD=prod_password
+DATABASE_HOST=db.myserver.com
+DATABASE_PORT=3306
+```
+
+add above dot env value to "settings.py" file   
+```py
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Define BASE_DIR
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Determine the environment (default to local)
+ENV = os.getenv("DJANGO_ENV", "local")
+
+# Load the corresponding .env file
+dotenv_file = f".env.{ENV}"
+load_dotenv(os.path.join(BASE_DIR, dotenv_file))
+
+# SECURITY SETTINGS
+SECRET_KEY = os.getenv("SECRET_KEY")
+DEBUG = os.getenv("DEBUG") == "True"
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
+
+# DATABASE CONFIGURATION
+DATABASES = {
+    "default": {
+        "ENGINE": os.getenv("DATABASE_ENGINE"),
+        "NAME": os.getenv("DATABASE_NAME"),
+        "USER": os.getenv("DATABASE_USER"),
+        "PASSWORD": os.getenv("DATABASE_PASSWORD"),
+        "HOST": os.getenv("DATABASE_HOST"),
+        "PORT": os.getenv("DATABASE_PORT"),
+    }
+}
+
+# STATIC FILES
+STATIC_URL = "static/"
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+```
+
+Set the Environment Variable Before Running Django
+For Local Development
+```bash
+$ export DJANGO_ENV=local
+$ python manage.py runserver
+```  
+For Testing
+```bash
+export DJANGO_ENV=test
+python manage.py test
+```
+For Production
+```bash
+export DJANGO_ENV=prod
+gunicorn mydjango.wsgi
+```
+build docker  
+```bash
+$ sudo docker build -t mydjango-app .
+$ sudo docker run -d -p 8000:8000 --name mydjango-container mydjango-app
+```
+
+
