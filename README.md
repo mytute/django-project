@@ -180,6 +180,12 @@ export DJANGO_ENV=prod
 gunicorn mydjango.wsgi
 ```
 
+run application   
+```bash
+$ gunicorn myfjango.wsgi:application -b 0.0.0.0:8000
+$ python manage.py runserver  # this method not sutable for production 
+```
+
 docker file  on root directory   
 ```bash
 # Use an official Python runtime as a parent image
