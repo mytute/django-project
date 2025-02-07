@@ -261,4 +261,37 @@ restart mysql server from local machine
 $ sudo systemctl restart mysqld
 ```
 
-now try to connect 
+### connect with mysql docker container    
+```bash
+$ docker pull mysql:latest # Pull the MySQL Docker Image
+
+$ docker run -d --name mysql-container \
+  -e MYSQL_ROOT_PASSWORD=rootpassword \
+  -e MYSQL_DATABASE=mydatabase \
+  -e MYSQL_USER=myuser \
+  -e MYSQL_PASSWORD=mypassword \
+  -p 3307:3306 \
+  -v mysql_data:/var/lib/mysql \
+  --restart unless-stopped \
+  mysql:latestm
+
+$ sudo docker exec -it mysql-container mysql -u root -p
+
+> mysql> create database mydatabase;
+
+# use following url to login docker mysql for dbever
+jdbc:mysql://localhost:3307/mydatabase?allowPublicKeyRetrieval=true&useSSL=false
+
+# throught mysql-container make migrations 
+$ sudo docker exec -it 11e29c840a9d bash
+root@11e29c840a9d:/app# python manage.py migrate
+```
+
+
+
+
+
+
+
+
+
