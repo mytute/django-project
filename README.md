@@ -224,4 +224,41 @@ $ sudo docker build -t mydjango-app .
 $ sudo docker run -d -p 8000:8000 --name mydjango-container mydjango-app
 ```
 
+### conflict between localhost of local machine and docker container.    
 
+if your mysql not connecting with docker application it may conflict of locahost hot in local machine and docker container  
+get ip address 
+```bash
+$ ip addr show docker0 # IP address of the docker0 network interface, which is the default virtual bridge network created by Docker on your host machine.
+$ ip route | grep default | awk '{print $3}'  # extracts the default gateway IP 
+```
+put docker0 ip address for mysql host in django dot env file.   
+```bash
+SECRET_KEY=test-secret-ley
+DEBUG=True
+ALLOWED_HOSTS=localhost 
+DATABASE_ENGINE=django.db.backends.mysql
+DATABASE_NAME=mydatabase
+DATABASE_USER=root
+DATABASE_PASSWORD=
+DATABASE_HOST=172.17.0.1 # add op address from docker0 (not localhost)
+DATABASE_PORT=3306
+```
+```bash
+$ mysql
+> CREATE USER 'root'@'172.17.0.%' IDENTIFIED BY 'yourpassword';
+> GRANT ALL PRIVILEGES ON *.* TO 'root'@'172.17.0.%' WITH GRANT OPTION;
+> FLUSH PRIVILEGES;
+```
+By default, MySQL only accepts connections from localhost (127.0.0.1) so need chage to all
+```bash
+$ sudo vi  /etc/my.cnf
+# add following line to my.cnf file instead of bind-address = 127.0.0.1
+# bind-address = 0.0.0.0 
+```
+restart mysql server from local machine  
+```bash
+$ sudo systemctl restart mysqld
+```
+
+now try to connect 
