@@ -299,6 +299,75 @@ $ docker compose --env-file .env.local up -d
 $ docker compose --env-file .env.local up -d
 ```
 
+> .env.local
+```bash
+SECRET_KEY=12344546
+DEBUG=True
+ALLOWED_HOSTS=localhost 
+DATABASE_ENGINE=django.db.backends.mysql
+DATABASE_NAME=mydatabase
+DATABASE_USER=root
+DATABASE_PASSWORD=1234
+DATABASE_HOST= db
+DATABASE_PORT=3307
+DATABASE_ROOT_PASSWORD= 1234
+```
+
+> docker-compose.yml  
+```yml
+services:
+  db:
+    image: mysql:latest
+    container_name: mysql-container
+    restart: unless-stopped 
+    env_file:
+      - .env.local 
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME}
+      MYSQL_USER: ${DATABASE_USER}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "${DATABASE_PORT}:3306"
+    command: --port=3307
+    volumes:
+      - mysql_data:/var/lib/mysql  
+
+  web:
+    build: . 
+    container_name: django-app
+    restart: unless-stopped
+    depends_on:
+      - db 
+    env_file:
+      - .env.local 
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS} 
+      DATABASE_ENGINE: ${DATABASE_ENGINE}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD} 
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+    ports:
+      - "8000:8000"
+    volumes:
+      # no need to add "- .:/app " if you already copied files to /app in "Dockerfile"
+      - ./static:/app/static  # Mount only static files
+      - ./media:/app/media    # Mount only media files
+
+volumes:
+  mysql_data:
+  static:
+  media:
+```
+
+you can select "db" (service name) as host name in .env file when you have same port export from the mysql 3306:3306. 
+but when change expose mysql port(to 3307) then add aditional line under db as "command: --port:3307" 
+and here you need to create database call "mydatabase" in order to app work on browser.  
+
 
 
 
