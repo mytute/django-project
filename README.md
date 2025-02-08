@@ -287,6 +287,18 @@ $ sudo docker exec -it 11e29c840a9d bash
 root@11e29c840a9d:/app# python manage.py migrate
 ```
 
+### run django and mysql with docker-compose file   
+```bash
+# by defalut docker get .env file
+# if your .env file name can define in docker-compose file (eg: env_file: - .env.prod)
+# if not and there .env.local, .env.test, .env.prod the use follwoing for docker compose up   
+$ docker compose --env-file .env.local up -d
+
+# but best way is change --env-file to .env.local in docker-compose file and run following command
+# because sometime port not mapping correcly becasue env file load late.  
+$ docker compose --env-file .env.local up -d
+```
+
 
 
 
