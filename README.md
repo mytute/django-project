@@ -368,8 +368,11 @@ you can select "db" (service name) as host name in .env file when you have same 
 but when change expose mysql port(to 3307) then add aditional line under db as "command: --port:3307" 
 and here you need to create database call "mydatabase" in order to app work on browser.  
 
-
-
+you can use "FROM python:3.13-slim" more lite version of python in your Dockerfile if you want to more free space.  
+to check memory and cpu usage of docker containers  
+```bash
+$ sudo docker stats
+```
 
 
 
