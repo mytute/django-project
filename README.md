@@ -101,6 +101,51 @@ $ sudo ufw enable
 $ sudo ufw status
 $ sudo ufw status verbose # get more details
 ```
+install Fail2Ban to Prevent Brute-Force Attacks   
+```bash
+$ sudo apt install fail2ban # don't use -y
+$ cd /etc/fail2band && ls
+$ cp fail2band.conf fail2band.local # make a copy from default configuration file
+# you should not edit "fail2band.conf" directly because it overwritten by Fail2Ban updates
+$ vi fail2band.local # file is used to override jail.conf
+# It is the recommended place to make custom configurations because it is not affected by updates.
+
+$ cp jail.conf jail.local # make a copy from default configuration file
+$ vi jail.local # file is used to override jail.conf
+
+# Add the [sshd] Jail Configure the sshd jail to monitor SSHD logs and block malicious IPs:
+# add following text under [sshd] for enable ssh(open ssh port from fail2ban) and control ssh operations.  
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = %(sshd_log)s
+maxretry = 3
+bantime = 24h
+findtime = 10m
+ignoreip = 127.0.0.1/8 ::1 <your_ip_address>
+
+sudo systemctl restart fail2ban
+sudo systemctl status fail2ban
+
+sudo systemctl enable --now fail2ban
+sudo tail -f /var/log/fail2ban.log # to test logs 
+```
+
+Even though password authentication is disabled, attackers can still.   
+1. Attempt to connect repeatedly, filling up your logs and consuming resources.   
+2. Try to exploit vulnerabilities in the SSH service itself.   
+3. Probe your server for other services or vulnerabilities.   
+
+rate limiting 
+1. Nginx Rate Limiting (Recommended for Reverse Proxy).  
+2. Application-Level Rate Limiting (Best for User-Specific Limits).  
+3. Firewall-Based Rate Limiting (Best for DDoS Protection).
+4. Cloudflare Rate Limiting (Best for Public Web Apps).    
+```bash
+
+```
+
 
 virtualenv is the way to separate different Python environment  
 ```bash
