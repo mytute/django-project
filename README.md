@@ -462,7 +462,7 @@ If you're using Django's admin panel, create a superuser again:
 $ python3 manage.py createsuperuser
 ```
 
-Restart Gunicorn & Nginx 
+Restart Gunicd corn & Nginx 
 ```bash 
 $ sudo systemctl restart gunicorn
 $ sudo systemctl restart nginx
