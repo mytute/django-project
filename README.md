@@ -6,7 +6,11 @@ $ pip install virtualenv
 $ virtualenv --version
 $ virtualenv venv
 $ source venv/bin/activate
-$ pip list  
+$ pip list
+
+# another way to install venv
+$ sudo apt install python3-virtualenv
+$ python3 -m venv ~/path/to/env
 ```
 
 install the Python 3 and MySQL development headers and librarie    
