@@ -166,7 +166,11 @@ $ pip list
 $ pip freeze  
 
 # copy used dependencies to "requirements.txt" file.(location where has manage.py file in the project)   
-$ pip freeze > requirements.txt  
+$ pip freeze > requirements.txt
+
+# another way to install venv
+$ sudo apt install python3-virtualenv
+$ python3 -m venv ~/path/to/env
 ```
 
 let pull django project from local machine to the remote server  
